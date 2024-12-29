@@ -1,0 +1,56 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Mon Profil{% endblock %} {% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Mon Profil</h4>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-4 text-center">
+                        <img src="{{ user.profil.image.url }}" class="rounded-circle img-fluid mb-3" style="max-width: 200px;">
+                    </div>
+                    <div class="col-md-8">
+                        <form method="POST" enctype="multipart/form-data">
+                            {% csrf_token %}
+
+                            <div class="mb-3">
+                                <label class="form-label">Nom d'utilisateur</label> {{ u_form.username }}
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Email</label> {{ u_form.email }}
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Prénom</label> {{ u_form.first_name }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Nom</label> {{ u_form.last_name }}
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Téléphone</label> {{ p_form.telephone }}
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Fonction</label> {{ p_form.fonction }}
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Photo de profil</label> {{ p_form.image }}
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Enregistrer les modifications
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

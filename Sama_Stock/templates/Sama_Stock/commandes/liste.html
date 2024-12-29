@@ -1,0 +1,93 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Gestion des commandes{% endblock %} {% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Gestion des commandes</h2>
+    <a href="{% url 'Sama_Stock:nouvelle_commande' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Nouvelle commande
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>N°</th>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Client/Fournisseur</th>
+                        <th>Livraison prévue</th>
+                        <th>Statut</th>
+                        <th>Articles</th>
+                        <th>Total</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for commande in commandes %}
+                    <tr>
+                        <td>#{{ commande.id }}</td>
+                        <td>{{ commande.date_commande|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <span class="badge {% if commande.type_commande == 'ACHAT' %}bg-primary{% else %}bg-info{% endif %}">
+                                {{ commande.get_type_commande_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if commande.type_commande == 'ACHAT' %} {{ commande.fournisseur.nom }} {% else %} {{ commande.client }} {% endif %}
+                        </td>
+                        <td>{{ commande.date_livraison_prevue|date:"d/m/Y" }}</td>
+                        <td>
+                            <span class="badge {% if commande.statut == 'EN_ATTENTE' %}bg-warning
+                                       {% elif commande.statut == 'VALIDEE' %}bg-info
+                                       {% elif commande.statut == 'LIVREE' %}bg-success
+                                       {% else %}bg-danger{% endif %}">
+                                {{ commande.get_statut_display }}
+                            </span>
+                        </td>
+                        <td>{{ commande.get_nombre_articles }}</td>
+                        <td>{{ commande.get_total|floatformat:0 }} FCFA</td>
+                        <td class="text-end">
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-print"></i> Imprimer
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Sama_Stock:generer_bon_commande' commande.id %}?type=original" target="_blank">
+                                            Original
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'Sama_Stock:generer_bon_commande' commande.id %}?type=copy" target="_blank">
+                                            Copie
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            {% if commande.statut == 'EN_ATTENTE' %}
+                            <a href="{% url 'Sama_Stock:valider_commande' commande.pk %}" class="btn btn-sm btn-success">
+                                <i class="fas fa-check"></i> Valider
+                            </a>
+                            <a href="{% url 'Sama_Stock:annuler_commande' commande.pk %}" class="btn btn-sm btn-danger">
+                                <i class="fas fa-times"></i> Annuler
+                            </a>
+                            {% elif commande.statut == 'VALIDEE' %}
+                            <a href="{% url 'Sama_Stock:livrer_commande' commande.pk %}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-truck"></i> Livrer
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">Aucune commande enregistrée</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

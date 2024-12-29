@@ -1,0 +1,230 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Statistiques{% endblock %} {% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2>Statistiques</h2>
+    </div>
+    <div class="col-md-4">
+        <form method="get" class="d-flex">
+            <select name="periode" class="form-select me-2" onchange="this.form.submit()">
+                <option value="7" {% if periode == '7' %}selected{% endif %}>7 jours</option>
+                <option value="30" {% if periode == '30' %}selected{% endif %}>30 jours</option>
+                <option value="90" {% if periode == '90' %}selected{% endif %}>90 jours</option>
+                <option value="365" {% if periode == '365' %}selected{% endif %}>1 an</option>
+            </select>
+        </form>
+    </div>
+</div>
+
+<!-- Statistiques générales -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title">Produits</h5>
+                <h2>{{ stats_generales.total_produits }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <h5 class="card-title">Produits en alerte</h5>
+                <h2>{{ stats_generales.produits_en_alerte }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Valeur du stock</h5>
+                <h2>{{ stats_generales.valeur_stock|floatformat:0 }} FCFA</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h5 class="card-title">Marge moyenne</h5>
+                <h2>{{ stats_generales.marge_moyenne|floatformat:1 }}%</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphiques -->
+<div class="row mb-4">
+    <!-- Graphique des mouvements -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Évolution des mouvements</h5>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleChartType('mouvements')">
+                        <i class="fas fa-chart-bar"></i>
+                    </button>
+                    <a href="{% url 'Sama_Stock:export_statistiques' %}" class="btn btn-sm btn-outline-success">
+                        <i class="fas fa-file-excel"></i> Exporter
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="mouvementsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique des ventes par catégorie -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Ventes par catégorie</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="categoriesChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top produits -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Top 5 des produits</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Produit</th>
+                        <th>Ventes</th>
+                        <th>CA</th>
+                        <th>Bénéfice</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for produit in top_produits %}
+                    <tr>
+                        <td>{{ produit.nom }}</td>
+                        <td>{{ produit.total_sorties }}</td>
+                        <td>{{ produit.chiffre_affaires|floatformat:0 }} FCFA</td>
+                        <td>{{ produit.benefice|floatformat:0 }} FCFA</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiques par catégorie -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Statistiques par catégorie</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Catégorie</th>
+                        <th>Nombre de produits</th>
+                        <th>Valeur du stock</th>
+                        <th>Produits en alerte</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for categorie in stats_categories %}
+                    <tr>
+                        <td>{{ categorie.nom }}</td>
+                        <td>{{ categorie.nombre_produits }}</td>
+                        <td>{{ categorie.valeur_stock|floatformat:0 }} FCFA</td>
+                        <td>
+                            {% if categorie.nombre_alertes > 0 %}
+                            <span class="badge bg-warning">{{ categorie.nombre_alertes }}</span> {% else %}
+                            <span class="badge bg-success">0</span> {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Préparation des données depuis Django en JSON
+    const derniersMois = JSON.parse('{{ derniers_mois|escapejs }}');
+    const ventesCategories = JSON.parse('{{ ventes_categories|escapejs }}');
+
+    // Configuration du graphique des mouvements
+    const mouvementsData = {
+        labels: derniersMois.map(m => m.mois),
+        datasets: [{
+            label: 'Entrées',
+            data: derniersMois.map(m => m.entrees),
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 1
+        }, {
+            label: 'Sorties',
+            data: derniersMois.map(m => m.sorties),
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 1
+        }]
+    };
+
+    // Configuration du graphique des catégories
+    const categoriesData = {
+        labels: ventesCategories.map(c => c.nom),
+        datasets: [{
+            data: ventesCategories.map(c => c.total_ventes || 0),
+            backgroundColor: [
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(54, 162, 235, 0.8)',
+                'rgba(255, 206, 86, 0.8)',
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+            ]
+        }]
+    };
+
+    // Initialisation des graphiques
+    const mouvementsChart = new Chart(
+        document.getElementById('mouvementsChart'), {
+            type: 'line',
+            data: mouvementsData,
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        }
+    );
+
+    const categoriesChart = new Chart(
+        document.getElementById('categoriesChart'), {
+            type: 'doughnut',
+            data: categoriesData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        }
+    );
+
+    function toggleChartType(chartId) {
+        const chart = window[`${chartId}Chart`];
+        chart.config.type = chart.config.type === 'line' ? 'bar' : 'line';
+        chart.update();
+    }
+</script>
+{% endblock %}

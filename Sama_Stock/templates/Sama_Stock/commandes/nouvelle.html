@@ -1,0 +1,173 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Nouvelle commande{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-body">
+        <h3 class="card-title mb-4">Nouvelle commande</h3>
+
+        <form method="post" id="commandeForm">
+            {% csrf_token %}
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Fournisseur</label>
+                    <select name="fournisseur" class="form-select" required>
+                        <option value="">Sélectionner un fournisseur</option>
+                        {% for fournisseur in fournisseurs %}
+                        <option value="{{ fournisseur.id }}">{{ fournisseur.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Date de livraison prévue</label>
+                    <input type="date" name="date_livraison" class="form-control" required>
+                </div>
+            </div>
+
+            <div class="table-responsive mt-4">
+                <table class="table table-striped" id="produitsTable">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Prix unitaire</th>
+                            <th>Stock actuel</th>
+                            <th>Quantité</th>
+                            <th>Total HT</th>
+                            <th>TVA (18%)</th>
+                            <th>Total TTC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for produit in produits %}
+                        <tr>
+                            <td>
+                                {{ produit.nom }} {% if produit.quantite_stock
+                                <=p roduit.seuil_alerte %} <div class="stock-warning">Stock bas!</div>
+            {% endif %}
+            </td>
+            <td>{{ produit.prix_achat }} FCFA</td>
+            <td>{{ produit.quantite_stock }}</td>
+            <td>
+                <input type="number" name="quantite_{{ produit.id }}" class="form-control form-control-sm quantite" min="0" value="0" data-prix="{{ produit.prix_achat }}" data-suggestion="{{ produit.get_suggestions_reapprovisionnement }}" onchange="calculerTotal(this)">
+                <small class="suggestion-text text-muted">
+                                    Suggestion: {{ produit.get_suggestions_reapprovisionnement }}
+                                </small>
+            </td>
+            <td class="ligne-total-ht">0 FCFA</td>
+            <td class="ligne-tva">0 FCFA</td>
+            <td class="ligne-total-ttc">0 FCFA</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-end"><strong>Totaux:</strong></td>
+                    <td id="total-ht"><strong>0 FCFA</strong></td>
+                    <td id="total-tva"><strong>0 FCFA</strong></td>
+                    <td id="total-ttc"><strong>0 FCFA</strong></td>
+                </tr>
+            </tfoot>
+            </table>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Commentaire</label>
+        <textarea name="commentaire" class="form-control" rows="3"></textarea>
+    </div>
+
+    <div class="d-flex justify-content-between">
+        <a href="{% url 'Sama_Stock:gestion_commandes' %}" class="btn btn-secondary">Annuler</a>
+        <button type="submit" class="btn btn-primary">Créer la commande</button>
+    </div>
+    </form>
+</div>
+</div>
+
+<style>
+    .stock-warning {
+        color: #dc3545;
+        font-size: 0.875em;
+    }
+    
+    .tva-info {
+        font-size: 0.9em;
+        color: #6c757d;
+    }
+</style>
+
+<script>
+    const TVA_RATE = 0.18;
+
+    function formatMontant(montant) {
+        return montant.toLocaleString() + ' FCFA';
+    }
+
+    function calculerTotal(input) {
+        const tr = input.closest('tr');
+        const prix = parseFloat(input.dataset.prix);
+        const quantite = parseInt(input.value) || 0;
+        const suggestion = parseInt(input.dataset.suggestion);
+
+        // Validation de la quantité
+        if (quantite < 0) {
+            input.value = 0;
+            return;
+        }
+
+        // Alerte si la quantité est très supérieure à la suggestion
+        if (quantite > suggestion * 2) {
+            if (!confirm(`La quantité (${quantite}) est très supérieure à la suggestion (${suggestion}). Voulez-vous continuer ?`)) {
+                input.value = suggestion;
+                calculerTotal(input);
+                return;
+            }
+        }
+
+        // Calculs des montants
+        const totalHT = prix * quantite;
+        const montantTVA = totalHT * TVA_RATE;
+        const totalTTC = totalHT + montantTVA;
+
+        // Mise à jour des totaux de la ligne
+        tr.querySelector('.ligne-total-ht').textContent = formatMontant(totalHT);
+        tr.querySelector('.ligne-tva').textContent = formatMontant(montantTVA);
+        tr.querySelector('.ligne-total-ttc').textContent = formatMontant(totalTTC);
+
+        // Recalcul des totaux généraux
+        let totalGeneralHT = 0;
+        let totalGeneralTVA = 0;
+        let totalGeneralTTC = 0;
+
+        document.querySelectorAll('.quantite').forEach(input => {
+            const prix = parseFloat(input.dataset.prix);
+            const qte = parseInt(input.value) || 0;
+            const ht = prix * qte;
+            const tva = ht * TVA_RATE;
+            totalGeneralHT += ht;
+            totalGeneralTVA += tva;
+            totalGeneralTTC += (ht + tva);
+        });
+
+        // Mise à jour des totaux généraux
+        document.getElementById('total-ht').innerHTML = `<strong>${formatMontant(totalGeneralHT)}</strong>`;
+        document.getElementById('total-tva').innerHTML = `<strong>${formatMontant(totalGeneralTVA)}</strong>`;
+        document.getElementById('total-ttc').innerHTML = `<strong>${formatMontant(totalGeneralTTC)}</strong>`;
+    }
+
+    // Validation du formulaire
+    document.getElementById('commandeForm').addEventListener('submit', function(e) {
+        let hasProducts = false;
+        document.querySelectorAll('.quantite').forEach(input => {
+            if (parseInt(input.value) > 0) hasProducts = true;
+        });
+
+        if (!hasProducts) {
+            e.preventDefault();
+            alert('Veuillez spécifier au moins une quantité à commander.');
+        }
+    });
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.quantite').forEach(input => calculerTotal(input));
+    });
+</script>
+{% endblock %}

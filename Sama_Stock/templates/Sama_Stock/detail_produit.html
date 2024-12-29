@@ -1,0 +1,60 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}{{ produit.nom }}{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                {% if produit.image %}
+                <img src="{{ produit.image.url }}" class="img-fluid rounded" alt="{{ produit.nom }}"> {% endif %}
+            </div>
+            <div class="col-md-8">
+                <h2>{{ produit.nom }}</h2>
+                <p class="text-muted">Catégorie: {{ produit.categorie.nom }}</p>
+                <p>{{ produit.description }}</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Prix unitaire:</strong> {{ produit.prix_unitaire }} FCFA</p>
+                        <p><strong>Quantité en stock:</strong> {{ produit.quantite_stock }}</p>
+                        <p><strong>Seuil d'alerte:</strong> {{ produit.seuil_alerte }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Date de création:</strong> {{ produit.date_creation|date:"d/m/Y" }}</p>
+                        <p><strong>Dernière modification:</strong> {{ produit.date_modification|date:"d/m/Y" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <h4>Derniers mouvements</h4>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Quantité</th>
+                    <th>Effectué par</th>
+                    <th>Commentaire</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mouvement in mouvements %}
+                <tr>
+                    <td>{{ mouvement.date_mouvement|date:"d/m/Y H:i" }}</td>
+                    <td>{{ mouvement.get_type_mouvement_display }}</td>
+                    <td>{{ mouvement.quantite }}</td>
+                    <td>{{ mouvement.effectue_par.username }}</td>
+                    <td>{{ mouvement.commentaire }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center">Aucun mouvement enregistré</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

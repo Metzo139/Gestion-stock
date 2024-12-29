@@ -1,0 +1,113 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}{{ titre }}{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-body">
+        <h3 class="card-title mb-4">{{ titre }}</h3>
+
+        <form method="post" enctype="multipart/form-data" id="produitForm">
+            {% csrf_token %}
+
+            <div class="row">
+                <!-- Informations de base -->
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Informations de base</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Nom du produit</label> {{ form.nom }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Catégorie</label> {{ form.categorie }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Description</label> {{ form.description }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prix et stock -->
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Prix et stock</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Prix d'achat</label> {{ form.prix_achat }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Marge (%)</label> {{ form.marge }}
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Prix de vente</label> {{ form.prix_unitaire }}
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Stock initial</label> {{ form.quantite_stock }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Seuil d'alerte</label> {{ form.seuil_alerte }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations complémentaires -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Informations complémentaires</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Fournisseur principal</label> {{ form.fournisseur_principal }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Emplacement</label> {{ form.emplacement }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Unité de mesure</label> {{ form.unite_mesure }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Image du produit</label> {{ form.image }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'Sama_Stock:liste_produits' %}" class="btn btn-secondary">Annuler</a>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function calculerPrixVente() {
+        const prixAchat = parseFloat(document.getElementById('id_prix_achat').value) || 0;
+        const marge = parseFloat(document.getElementById('id_marge').value) || 0;
+        const prixVente = prixAchat * (1 + marge / 100);
+        document.getElementById('id_prix_unitaire').value = prixVente.toFixed(2);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialiser les calculs
+        calculerPrixVente();
+
+        // Ajouter les classes Bootstrap aux champs
+        const formControls = document.querySelectorAll('input, select, textarea');
+        formControls.forEach(element => {
+            if (!element.classList.contains('form-control')) {
+                element.classList.add('form-control');
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Nouvel Inventaire{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-body">
+        <h3 class="card-title mb-4">Démarrer un nouvel inventaire</h3>
+
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> En démarrant un nouvel inventaire, vous allez pouvoir :
+            <ul>
+                <li>Vérifier les quantités réelles de tous les produits</li>
+                <li>Comparer avec les quantités théoriques du système</li>
+                <li>Ajuster le stock si nécessaire</li>
+            </ul>
+        </div>
+
+        <form method="post" class="mt-4">
+            {% csrf_token %}
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'Sama_Stock:dashboard' %}" class="btn btn-secondary">Annuler</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-play"></i> Démarrer l'inventaire
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

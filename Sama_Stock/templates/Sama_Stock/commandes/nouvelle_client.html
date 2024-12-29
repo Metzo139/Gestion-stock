@@ -1,0 +1,100 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Nouvelle commande client{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-body">
+        <h3 class="card-title mb-4">Nouvelle commande client</h3>
+
+        <form method="post" id="commandeForm">
+            {% csrf_token %}
+            <input type="hidden" name="type_commande" value="VENTE">
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Nom du client</label>
+                    <input type="text" name="client" class="form-control" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Téléphone</label>
+                    <input type="text" name="telephone_client" class="form-control" required>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Adresse de livraison</label>
+                <textarea name="adresse_livraison" class="form-control" rows="3" required></textarea>
+            </div>
+
+            <div class="table-responsive mt-4">
+                <table class="table table-striped" id="produitsTable">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Stock disponible</th>
+                            <th>Prix unitaire</th>
+                            <th>Quantité</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for produit in produits %}
+                        <tr>
+                            <td>{{ produit.nom }}</td>
+                            <td>{{ produit.quantite_stock }}</td>
+                            <td>{{ produit.prix_unitaire }} FCFA</td>
+                            <td>
+                                <input type="number" name="quantite_{{ produit.id }}" class="form-control form-control-sm quantite" min="0" max="{{ produit.quantite_stock }}" value="0" data-prix="{{ produit.prix_unitaire }}" onchange="calculerTotal(this)">
+                            </td>
+                            <td class="ligne-total">0 FCFA</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>Total Commande:</strong></td>
+                            <td id="total-commande"><strong>0 FCFA</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Commentaire</label>
+                <textarea name="commentaire" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'Sama_Stock:gestion_commandes' %}" class="btn btn-secondary">Annuler</a>
+                <button type="submit" class="btn btn-primary">Créer la commande</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function calculerTotal(input) {
+        const tr = input.closest('tr');
+        const prix = parseFloat(input.dataset.prix);
+        const quantite = parseInt(input.value) || 0;
+        const total = prix * quantite;
+
+        // Mettre à jour le total de la ligne
+        tr.querySelector('.ligne-total').textContent = total.toLocaleString() + ' FCFA';
+
+        // Recalculer le total général
+        let totalGeneral = 0;
+        document.querySelectorAll('.quantite').forEach(input => {
+            const prix = parseFloat(input.dataset.prix);
+            const qte = parseInt(input.value) || 0;
+            totalGeneral += prix * qte;
+        });
+
+        // Mettre à jour le total de la commande
+        document.getElementById('total-commande').innerHTML =
+            '<strong>' + totalGeneral.toLocaleString() + ' FCFA</strong>';
+    }
+
+    // Initialiser les totaux au chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.quantite').forEach(input => calculerTotal(input));
+    });
+</script>
+{% endblock %}

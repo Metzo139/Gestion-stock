@@ -1,0 +1,185 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Tableau de bord{% endblock %} {% block content %}
+<!-- En-tête avec résumé -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="mb-4">Tableau de bord</h2>
+    </div>
+</div>
+
+<!-- Cartes de statistiques -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white h-100">
+            <div class="card-body">
+                <h5 class="card-title">Produits</h5>
+                <h2>{{ stats.total_produits }}</h2>
+                <p class="mb-0">Total des produits</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body">
+                <h5 class="card-title">Valeur du stock</h5>
+                <h2>{{ valeur_stock|floatformat:0 }} FCFA</h2>
+                <p class="mb-0">Valeur totale</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark h-100">
+            <div class="card-body">
+                <h5 class="card-title">Fournisseurs</h5>
+                <h2>{{ stats.total_fournisseurs }}</h2>
+                <p class="mb-0">Fournisseurs actifs</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card {% if stats.produits_en_alerte > 0 %}bg-danger{% else %}bg-info{% endif %} text-white h-100">
+            <div class="card-body">
+                <h5 class="card-title">Alertes Stock</h5>
+                <h2>{{ stats.produits_en_alerte }}</h2>
+                <p class="mb-0">Produits en alerte</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4">Actions rapides</h5>
+                <div class="row text-center">
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'Sama_Stock:ajouter_produit' %}" class="btn btn-outline-primary btn-lg w-100">
+                            <i class="fas fa-plus-circle mb-2"></i><br> Nouveau Produit
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'Sama_Stock:mouvement_stock' %}" class="btn btn-outline-success btn-lg w-100">
+                            <i class="fas fa-exchange-alt mb-2"></i><br> Mouvement Stock
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'Sama_Stock:nouvelle_commande' %}" class="btn btn-outline-warning btn-lg w-100">
+                            <i class="fas fa-shopping-cart mb-2"></i><br> Nouvelle Commande
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'Sama_Stock:nouvel_inventaire' %}" class="btn btn-outline-info btn-lg w-100">
+                            <i class="fas fa-clipboard-list mb-2"></i><br> Nouvel Inventaire
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Derniers mouvements et alertes -->
+<div class="row">
+    <!-- Derniers mouvements -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">Derniers mouvements</h5>
+                    <a href="{% url 'Sama_Stock:mouvement_stock' %}" class="btn btn-sm btn-primary">Voir tout</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Produit</th>
+                                <th>Type</th>
+                                <th>Quantité</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mouvement in derniers_mouvements %}
+                            <tr>
+                                <td>{{ mouvement.date_mouvement|date:"d/m/Y H:i" }}</td>
+                                <td>{{ mouvement.produit.nom }}</td>
+                                <td>
+                                    <span class="badge {% if mouvement.type_mouvement == 'ENTREE' %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ mouvement.get_type_mouvement_display }}
+                                    </span>
+                                </td>
+                                <td>{{ mouvement.quantite }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">Aucun mouvement récent</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Commandes en cours -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">Commandes en cours</h5>
+                    <a href="{% url 'Sama_Stock:gestion_commandes' %}" class="btn btn-sm btn-primary">Voir tout</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>N°</th>
+                                <th>Fournisseur</th>
+                                <th>Date livraison</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for commande in commandes_en_cours %}
+                            <tr>
+                                <td>#{{ commande.id }}</td>
+                                <td>{{ commande.fournisseur.nom }}</td>
+                                <td>{{ commande.date_livraison_prevue|date:"d/m/Y" }}</td>
+                                <td>
+                                    <span class="badge bg-warning">{{ commande.get_statut_display }}</span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">Aucune commande en cours</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_css %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+<style>
+    .card {
+        transition: transform 0.2s;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .btn-lg {
+        padding: 1rem;
+    }
+    
+    .fas {
+        font-size: 2rem;
+    }
+</style>
+{% endblock %}

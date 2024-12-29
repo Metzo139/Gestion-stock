@@ -1,0 +1,23 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Supprimer le produit{% endblock %} {% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title text-center mb-4">Confirmer la suppression</h3>
+
+                <p class="text-center">
+                    Êtes-vous sûr de vouloir supprimer le produit "{{ produit.nom }}" ?
+                </p>
+
+                <form method="post" class="text-center">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-center gap-2">
+                        <a href="{% url 'Sama_Stock:liste_produits' %}" class="btn btn-secondary">Annuler</a>
+                        <button type="submit" class="btn btn-danger">Confirmer la suppression</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

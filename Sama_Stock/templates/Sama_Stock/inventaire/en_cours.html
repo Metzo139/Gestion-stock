@@ -1,0 +1,70 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Inventaire en cours{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="card-title mb-0">Inventaire #{{ inventaire.id }}</h3>
+            <span class="badge bg-primary">{{ inventaire.get_statut_display }}</span>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <p><strong>Date de début:</strong> {{ inventaire.date_debut|date:"d/m/Y H:i" }}</p>
+                <p><strong>Effectué par:</strong> {{ inventaire.effectue_par.username }}</p>
+            </div>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Catégorie</th>
+                            <th>Stock théorique</th>
+                            <th>Stock réel</th>
+                            <th>Écart</th>
+                            <th>Commentaire</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ligne in lignes %}
+                        <tr>
+                            <td>{{ ligne.produit.nom }}</td>
+                            <td>{{ ligne.produit.categorie.nom }}</td>
+                            <td>{{ ligne.quantite_theorique }}</td>
+                            <td>
+                                <input type="number" name="reelle_{{ ligne.id }}" value="{{ ligne.quantite_reelle }}" class="form-control form-control-sm" min="0">
+                            </td>
+                            <td>
+                                <span class="{% if ligne.ecart < 0 %}text-danger{% elif ligne.ecart > 0 %}text-success{% endif %}">
+                                    {{ ligne.ecart }}
+                                </span>
+                            </td>
+                            <td>
+                                <input type="text" name="commentaire_{{ ligne.id }}" value="{{ ligne.commentaire }}" class="form-control form-control-sm">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="submit" name="action" value="save" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Enregistrer
+                </button>
+                <button type="submit" name="action" value="terminate" class="btn btn-success">
+                    <i class="fas fa-check"></i> Terminer l'inventaire
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} {% block extra_css %}
+<style>
+    .form-control-sm {
+        min-width: 80px;
+    }
+</style>
+{% endblock %}

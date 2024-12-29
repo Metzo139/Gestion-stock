@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: a4 portrait;
+            margin: 2cm;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.4;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        
+        .company-info,
+        .supplier-info {
+            margin-bottom: 20px;
+        }
+        
+        .info-block {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        
+        .info-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        
+        .totals {
+            float: right;
+            width: 300px;
+            margin-top: 20px;
+        }
+        
+        .total-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .total-line.final {
+            font-weight: bold;
+            border-bottom: 2px solid #333;
+            font-size: 1.2em;
+        }
+        
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .signature-block {
+            margin-top: 50px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 6em;
+            color: rgba(200, 200, 200, 0.2);
+            z-index: -1;
+        }
+        
+        .qr-code {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 100px;
+            height: 100px;
+        }
+        
+        .conditions {
+            margin-top: 30px;
+            font-size: 0.8em;
+            color: #666;
+            page-break-inside: avoid;
+        }
+        
+        .original-copy {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1.2em;
+            color: #666;
+            border: 2px solid #666;
+            padding: 5px 10px;
+            transform: rotate(15deg);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>{{ entreprise.nom }}</h1>
+        <h2>Bon de Commande N° {{ commande.id }}</h2>
+    </div>
+
+    <div class="watermark">
+        {{ entreprise.nom }}
+    </div>
+
+    <div class="original-copy">
+        {% if is_original %}ORIGINAL{% else %}COPIE{% endif %}
+    </div>
+
+    <div class="qr-code">
+        <img src="data:image/png;base64,{% generate_qr qr_data %}" alt="QR Code">
+    </div>
+
+    <div class="info-block">
+        <div class="company-info">
+            <div class="info-title">Émetteur</div>
+            <p>{{ entreprise.adresse }}<br> Tél: {{ entreprise.telephone }}<br> Email: {{ entreprise.email }}</p>
+        </div>
+
+        <div class="supplier-info">
+            <div class="info-title">{% if commande.type_commande == 'VENTE' %}Client{% else %}Fournisseur{% endif %}</div>
+            {% if commande.type_commande == 'VENTE' %}
+            <p>{{ commande.client }}<br> Tél: {{ commande.telephone_client }}<br> Adresse: {{ commande.adresse_livraison }}</p>
+            {% else %}
+            <p>{{ commande.fournisseur.nom }}<br> Contact: {{ commande.fournisseur.contact }}<br> Adresse: {{ commande.fournisseur.adresse }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Produit</th>
+                <th>Quantité</th>
+                <th>Prix unitaire</th>
+                <th>Total HT</th>
+                <th>TVA (18%)</th>
+                <th>Total TTC</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ligne in lignes %}
+            <tr>
+                <td>{{ ligne.produit.nom }}</td>
+                <td>{{ ligne.quantite }}</td>
+                <td>{{ ligne.prix_unitaire }} FCFA</td>
+                <td>{{ ligne.total }} FCFA</td>
+                <td>{{ ligne.total|multiply:0.18 }} FCFA</td>
+                <td>{{ ligne.total|multiply:1.18 }} FCFA</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div class="total-line">
+            <span>Total HT:</span>
+            <span>{{ commande.get_total_ht }} FCFA</span>
+        </div>
+        <div class="total-line">
+            <span>TVA (18%):</span>
+            <span>{{ commande.get_total_tva }} FCFA</span>
+        </div>
+        <div class="total-line final">
+            <span>Total TTC:</span>
+            <span>{{ commande.get_total_ttc }} FCFA</span>
+        </div>
+    </div>
+
+    <div class="signature-block">
+        <p>Date de commande: {{ commande.date_commande|date:"d/m/Y" }}</p>
+        <p>Date de livraison prévue: {{ commande.date_livraison_prevue|date:"d/m/Y" }}</p>
+        {% if commande.commentaire %}
+        <p>Commentaire: {{ commande.commentaire }}</p>
+        {% endif %}
+    </div>
+
+    <div class="conditions">
+        <h4>Conditions Générales de Vente</h4>
+        <ol>
+            <li>Les prix sont exprimés en FCFA et incluent la TVA de 18%.</li>
+            <li>Le paiement doit être effectué dans les 30 jours suivant la date de facturation.</li>
+            <li>Les produits restent la propriété de {{ entreprise.nom }} jusqu'au paiement complet.</li>
+            <li>Toute réclamation doit être faite dans les 48 heures suivant la réception.</li>
+            <li>En cas de litige, les tribunaux de notre siège social sont seuls compétents.</li>
+        </ol>
+    </div>
+
+    <div class="footer">
+        <p>Document généré le {{ date|date:"d/m/Y H:i" }}</p>
+    </div>
+</body>
+
+</html>
