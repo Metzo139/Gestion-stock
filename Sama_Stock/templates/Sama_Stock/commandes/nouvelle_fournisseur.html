@@ -1,0 +1,168 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Nouvelle Commande Fournisseur{% endblock %} {% block extra_css %}
+<style>
+    .quantite-input {
+        width: 100px;
+    }
+    
+    .produit-row:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .fournisseur-select {
+        max-width: 400px;
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4 class="mb-0">Nouvelle Commande Fournisseur</h4>
+    </div>
+    <div class="card-body">
+        {% if messages %} {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %} {% endif %}
+
+        <form method="post" id="commandeForm">
+            {% csrf_token %}
+
+            <!-- Informations générales -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="fournisseur" class="form-label">Fournisseur</label>
+                        <select name="fournisseur" id="fournisseur" class="form-select fournisseur-select" required>
+                            <option value="">Sélectionner un fournisseur</option>
+                            {% for fournisseur in fournisseurs %}
+                                <option value="{{ fournisseur.id }}">{{ fournisseur.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="date_livraison" class="form-label">Date de livraison prévue</label>
+                        <input type="date" name="date_livraison" id="date_livraison" class="form-control" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des produits -->
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Catégorie</th>
+                            <th>Stock actuel</th>
+                            <th>Prix d'achat</th>
+                            <th>Quantité</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for produit in produits %}
+                        <tr class="produit-row">
+                            <td>{{ produit.nom }}</td>
+                            <td>{{ produit.categorie.nom }}</td>
+                            <td>{{ produit.quantite_stock }}</td>
+                            <td data-prix="{{ produit.prix_achat }}">{{ produit.prix_achat }} FCFA</td>
+                            <td>
+                                <input type="number" name="quantite_{{ produit.id }}" class="form-control quantite-input" min="0" value="0" data-prix="{{ produit.prix_achat }}" onchange="calculerTotal(this)">
+                            </td>
+                            <td>
+                                <span id="total_{{ produit.id }}">0</span> FCFA
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Total général -->
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="commentaire" class="form-label">Commentaire</label>
+                        <textarea name="commentaire" id="commentaire" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h5 class="card-title">Récapitulatif</h5>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Total HT:</span>
+                                <span id="total_ht">0 FCFA</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>TVA (18%):</span>
+                                <span id="total_tva">0 FCFA</span>
+                            </div>
+                            <div class="d-flex justify-content-between fw-bold">
+                                <span>Total TTC:</span>
+                                <span id="total_ttc">0 FCFA</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Boutons d'action -->
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Enregistrer la commande
+                </button>
+                <a href="{% url 'Sama_Stock:gestion_commandes' %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Annuler
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    function calculerTotal(input) {
+        const prixUnitaire = parseFloat(input.dataset.prix);
+        const produitId = input.name.split('_')[1];
+        const quantite = parseInt(input.value) || 0;
+        const total = quantite * prixUnitaire;
+
+        document.getElementById(`total_${produitId}`).textContent = total.toFixed(2);
+        calculerTotalGeneral();
+    }
+
+    function calculerTotalGeneral() {
+        let totalHT = 0;
+        document.querySelectorAll('.quantite-input').forEach(input => {
+            const prixUnitaire = parseFloat(input.dataset.prix);
+            const quantite = parseInt(input.value) || 0;
+            totalHT += quantite * prixUnitaire;
+        });
+
+        const tva = totalHT * 0.18;
+        const totalTTC = totalHT + tva;
+
+        document.getElementById('total_ht').textContent = `${totalHT.toFixed(2)} FCFA`;
+        document.getElementById('total_tva').textContent = `${tva.toFixed(2)} FCFA`;
+        document.getElementById('total_ttc').textContent = `${totalTTC.toFixed(2)} FCFA`;
+    }
+
+    // Validation du formulaire
+    document.getElementById('commandeForm').onsubmit = function(e) {
+        let totalQuantite = 0;
+        document.querySelectorAll('.quantite-input').forEach(input => {
+            totalQuantite += parseInt(input.value) || 0;
+        });
+
+        if (totalQuantite === 0) {
+            e.preventDefault();
+            alert('Veuillez spécifier au moins une quantité.');
+            return false;
+        }
+        return true;
+    };
+</script>
+{% endblock %}

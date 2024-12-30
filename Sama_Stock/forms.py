@@ -53,3 +53,23 @@ class ProfilUpdateForm(forms.ModelForm):
     class Meta:
         model = Profil
         fields = ['image', 'telephone', 'fonction'] 
+
+class FournisseurForm(forms.ModelForm):
+    class Meta:
+        model = Fournisseur
+        fields = ['nom', 'contact', 'email', 'adresse']
+        widgets = {
+            'nom': forms.TextInput(attrs={'class': 'form-control'}),
+            'contact': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'adresse': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        } 
+
+class CategorieForm(forms.ModelForm):
+    class Meta:
+        model = Categorie
+        fields = ['nom', 'description']
+        widgets = {
+            'nom': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        } 

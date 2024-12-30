@@ -1,0 +1,157 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Liste des Catégories{% endblock %} {% block extra_css %}
+<style>
+    .sort-icon {
+        font-size: 0.8em;
+        margin-left: 5px;
+    }
+    
+    .search-box {
+        max-width: 300px;
+    }
+    
+    .table th {
+        cursor: pointer;
+    }
+    
+    .table th:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="row align-items-center">
+            <div class="col-md-4">
+                <h4 class="mb-0">Liste des Catégories</h4>
+            </div>
+            <div class="col-md-4">
+                <form method="get" class="search-box mx-auto">
+                    <div class="input-group">
+                        <input type="text" name="search" class="form-control" placeholder="Rechercher..." value="{{ search_query }}">
+                        <button class="btn btn-outline-secondary" type="submit">
+                            <i class="fas fa-search"></i>
+                        </button> {% if search_query %}
+                        <a href="{% url 'Sama_Stock:liste_categories' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'Sama_Stock:ajouter_categorie' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nouvelle Catégorie
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body">
+        {% if messages %} {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %} {% endif %}
+
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('nom')">
+                            Nom {% if sort_by == 'nom' %}
+                            <i class="fas fa-sort-{{ order }}" aria-hidden="true"></i> {% endif %}
+                        </th>
+                        <th onclick="sortTable('description')">
+                            Description {% if sort_by == 'description' %}
+                            <i class="fas fa-sort-{{ order }}" aria-hidden="true"></i> {% endif %}
+                        </th>
+                        <th>Nombre de produits</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for categorie in page_obj %}
+                    <tr>
+                        <td>{{ categorie.nom }}</td>
+                        <td>{{ categorie.description|truncatewords:20 }}</td>
+                        <td>{{ categorie.produit_set.count }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{% url 'Sama_Stock:modifier_categorie' categorie.id %}" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'Sama_Stock:supprimer_categorie' categorie.id %}" class="btn btn-sm btn-danger">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">Aucune catégorie trouvée</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}&sort={{ sort_by }}&order={{ order }}">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}&sort={{ sort_by }}&order={{ order }}">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+                {% endif %} {% for num in page_obj.paginator.page_range %} {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num
+                < page_obj.number|add: '3' %} <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}&sort={{ sort_by }}&order={{ order }}">
+                                {{ num }}
+                            </a>
+                    </li>
+                    {% endif %} {% endfor %} {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}&sort={{ sort_by }}&order={{ order }}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}&sort={{ sort_by }}&order={{ order }}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    function sortTable(field) {
+        let currentUrl = new URL(window.location.href);
+        let searchParams = currentUrl.searchParams;
+
+        let currentSort = searchParams.get('sort') || 'nom';
+        let currentOrder = searchParams.get('order') || 'asc';
+
+        let newOrder = currentSort === field && currentOrder === 'asc' ? 'desc' : 'asc';
+
+        searchParams.set('sort', field);
+        searchParams.set('order', newOrder);
+
+        window.location.href = currentUrl.toString();
+    }
+</script>
+{% endblock %}

@@ -53,25 +53,34 @@
             <div class="card-body">
                 <h5 class="card-title mb-4">Actions rapides</h5>
                 <div class="row text-center">
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-4 mb-3">
                         <a href="{% url 'Sama_Stock:ajouter_produit' %}" class="btn btn-outline-primary btn-lg w-100">
                             <i class="fas fa-plus-circle mb-2"></i><br> Nouveau Produit
                         </a>
                     </div>
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-4 mb-3">
                         <a href="{% url 'Sama_Stock:mouvement_stock' %}" class="btn btn-outline-success btn-lg w-100">
                             <i class="fas fa-exchange-alt mb-2"></i><br> Mouvement Stock
                         </a>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <a href="{% url 'Sama_Stock:nouvelle_commande' %}" class="btn btn-outline-warning btn-lg w-100">
-                            <i class="fas fa-shopping-cart mb-2"></i><br> Nouvelle Commande
-                        </a>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <a href="{% url 'Sama_Stock:nouvel_inventaire' %}" class="btn btn-outline-info btn-lg w-100">
-                            <i class="fas fa-clipboard-list mb-2"></i><br> Nouvel Inventaire
-                        </a>
+                    <div class="col-md-4 mb-3">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-warning btn-lg w-100 dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-shopping-cart mb-2"></i><br> Nouvelle Commande
+                            </button>
+                            <ul class="dropdown-menu w-100" aria-labelledby="dropdownMenuButton">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'Sama_Stock:nouvelle_commande_client' %}">
+                                        <i class="fas fa-user"></i> Commande Client
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'Sama_Stock:nouvelle_commande_fournisseur' %}">
+                                        <i class="fas fa-truck"></i> Commande Fournisseur
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -129,7 +138,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="card-title mb-0">Commandes en cours</h5>
-                    <a href="{% url 'Sama_Stock:gestion_commandes' %}" class="btn btn-sm btn-primary">Voir tout</a>
+                    <a href="{% url 'Sama_Stock:liste_commandes' %}" class="btn btn-sm btn-primary">Voir tout</a>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm">
@@ -144,11 +153,22 @@
                         <tbody>
                             {% for commande in commandes_en_cours %}
                             <tr>
-                                <td>#{{ commande.id }}</td>
-                                <td>{{ commande.fournisseur.nom }}</td>
+                                <td>
+                                    <a href="{% url 'Sama_Stock:detail_commande' commande.id %}">
+                                        {{ commande.reference }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if commande.type_commande == 'ACHAT' %} {{ commande.fournisseur.nom }} {% else %} {{ commande.client }} {% endif %}
+                                </td>
                                 <td>{{ commande.date_livraison_prevue|date:"d/m/Y" }}</td>
                                 <td>
-                                    <span class="badge bg-warning">{{ commande.get_statut_display }}</span>
+                                    <span class="badge {% if commande.statut == 'EN_ATTENTE' %}bg-warning
+                                             {% elif commande.statut == 'VALIDEE' %}bg-success
+                                             {% elif commande.statut == 'ANNULEE' %}bg-danger
+                                             {% else %}bg-info{% endif %}">
+                                        {{ commande.get_statut_display }}
+                                    </span>
                                 </td>
                             </tr>
                             {% empty %}

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> {% load commande_extras %}
 <html>
 
 <head>
@@ -189,15 +189,15 @@
     <div class="totals">
         <div class="total-line">
             <span>Total HT:</span>
-            <span>{{ commande.get_total_ht }} FCFA</span>
+            <span>{{ total_ht|floatformat:0 }} FCFA</span>
         </div>
         <div class="total-line">
             <span>TVA (18%):</span>
-            <span>{{ commande.get_total_tva }} FCFA</span>
+            <span>{{ total_tva|floatformat:0 }} FCFA</span>
         </div>
         <div class="total-line final">
             <span>Total TTC:</span>
-            <span>{{ commande.get_total_ttc }} FCFA</span>
+            <span>{{ total_ttc|floatformat:0 }} FCFA</span>
         </div>
     </div>
 

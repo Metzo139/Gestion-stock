@@ -1,0 +1,316 @@
+{% extends 'Sama_Stock/base.html' %} {% load static %} {% load commande_extras %} {% block title %}Détail de la commande{% endblock %} {% block extra_css %}
+<style>
+    .timeline {
+        position: relative;
+        padding: 20px 0;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 50px;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 20px;
+        top: 0;
+        bottom: -20px;
+        width: 2px;
+        background: #dee2e6;
+    }
+    
+    .timeline-item:last-child::before {
+        display: none;
+    }
+    
+    .timeline-badge {
+        position: absolute;
+        left: 10px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #007bff;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 2px #007bff;
+    }
+    
+    .payment-status {
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        margin-top: 1rem;
+    }
+    
+    .payment-pending {
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+    }
+    
+    .payment-complete {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">
+                Commande {{ commande.reference }}
+                <span class="badge {% if commande.statut == 'LIVREE' %}bg-success
+                      {% elif commande.statut == 'EN_ATTENTE' %}bg-warning
+                      {% elif commande.statut == 'ANNULEE' %}bg-danger
+                      {% else %}bg-info{% endif %}">
+                    {{ commande.get_statut_display }}
+                </span>
+            </h4>
+            <div class="btn-group">
+                {% if commande.est_modifiable %}
+                <a href="{% url 'Sama_Stock:modifier_commande' commande.id %}" class="btn btn-warning">
+                    <i class="fas fa-edit"></i> Modifier
+                </a>
+                {% endif %}
+                <a href="{% url 'Sama_Stock:generer_bon_commande' commande.id %}" class="btn btn-secondary" target="_blank">
+                    <i class="fas fa-file-pdf"></i> Bon de commande
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <!-- Informations générales -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h5>Informations générales</h5>
+                <table class="table table-sm">
+                    <tr>
+                        <th>Type :</th>
+                        <td>{{ commande.get_type_commande_display }}</td>
+                    </tr>
+                    <tr>
+                        <th>Date de commande :</th>
+                        <td>{{ commande.date_commande|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Livraison prévue :</th>
+                        <td>{{ commande.date_livraison_prevue|date:"d/m/Y" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Créée par :</th>
+                        <td>{{ commande.creee_par.username }}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="col-md-6">
+                <h5>{% if commande.type_commande == 'ACHAT' %}Fournisseur{% else %}Client{% endif %}</h5>
+                <table class="table table-sm">
+                    {% if commande.type_commande == 'ACHAT' %}
+                    <tr>
+                        <th>Nom :</th>
+                        <td>{{ commande.fournisseur.nom }}</td>
+                    </tr>
+                    <tr>
+                        <th>Contact :</th>
+                        <td>{{ commande.fournisseur.contact }}</td>
+                    </tr>
+                    <tr>
+                        <th>Email :</th>
+                        <td>{{ commande.fournisseur.email }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <th>Nom :</th>
+                        <td>{{ commande.client }}</td>
+                    </tr>
+                    <tr>
+                        <th>Téléphone :</th>
+                        <td>{{ commande.telephone_client }}</td>
+                    </tr>
+                    <tr>
+                        <th>Adresse :</th>
+                        <td>{{ commande.adresse_livraison }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        <!-- Lignes de commande -->
+        <h5>Détail des articles</h5>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Produit</th>
+                        <th>Quantité</th>
+                        <th>Prix unitaire</th>
+                        <th>Total HT</th>
+                        <th>TVA (18%)</th>
+                        <th>Total TTC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                    <tr>
+                        <td>{{ ligne.produit.nom }}</td>
+                        <td>{{ ligne.quantite }}</td>
+                        <td>{{ ligne.prix_unitaire|floatformat:0 }} FCFA</td>
+                        <td>{{ ligne.total|floatformat:0 }} FCFA</td>
+                        <td>{{ ligne.total|multiply:0.18|floatformat:0 }} FCFA</td>
+                        <td>{{ ligne.total|multiply:1.18|floatformat:0 }} FCFA</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-end"><strong>Total HT :</strong></td>
+                        <td><strong>{{ commande.get_total_ht|floatformat:0 }} FCFA</strong></td>
+                        <td><strong>{{ commande.get_total_tva|floatformat:0 }} FCFA</strong></td>
+                        <td><strong>{{ commande.get_total_ttc|floatformat:0 }} FCFA</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        {% if commande.commentaire %}
+        <div class="mt-4">
+            <h5>Commentaire</h5>
+            <p class="mb-0">{{ commande.commentaire }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        {% if commande.statut == 'EN_ATTENTE' %}
+        <div class="mt-4">
+            <form method="post" action="{% url 'Sama_Stock:valider_commande' commande.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-check"></i> Valider la commande
+                </button>
+            </form>
+            <form method="post" action="{% url 'Sama_Stock:annuler_commande' commande.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger" onclick="return confirm('Êtes-vous sûr de vouloir annuler cette commande ?')">
+                    <i class="fas fa-times"></i> Annuler la commande
+                </button>
+            </form>
+        </div>
+        {% endif %} {% if commande.statut == 'VALIDEE' %}
+        <div class="mt-4">
+            <form method="post" action="{% url 'Sama_Stock:livrer_commande' commande.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-truck"></i> Marquer comme livrée
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Ajout du suivi de commande -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">Suivi de la commande</h5>
+    </div>
+    <div class="card-body">
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-badge bg-success"></div>
+                <div class="timeline-content">
+                    <h6>Commande créée</h6>
+                    <small class="text-muted">{{ commande.date_commande|date:"d/m/Y H:i" }} par {{ commande.creee_par.username }}</small>
+                </div>
+            </div>
+
+            {% if commande.statut != 'BROUILLON' %}
+            <div class="timeline-item">
+                <div class="timeline-badge {% if commande.statut == 'EN_ATTENTE' %}bg-warning{% else %}bg-success{% endif %}"></div>
+                <div class="timeline-content">
+                    <h6>En attente de validation</h6>
+                    <small class="text-muted">{{ commande.date_commande|date:"d/m/Y H:i" }}</small>
+                </div>
+            </div>
+            {% endif %} {% if commande.statut == 'VALIDEE' or commande.statut == 'LIVREE' %}
+            <div class="timeline-item">
+                <div class="timeline-badge {% if commande.statut == 'VALIDEE' %}bg-warning{% else %}bg-success{% endif %}"></div>
+                <div class="timeline-content">
+                    <h6>Commande validée</h6>
+                    <small class="text-muted">En attente de livraison</small>
+                </div>
+            </div>
+            {% endif %} {% if commande.statut == 'LIVREE' %}
+            <div class="timeline-item">
+                <div class="timeline-badge bg-success"></div>
+                <div class="timeline-content">
+                    <h6>Commande livrée</h6>
+                    <small class="text-muted">{{ commande.date_livraison_reelle|date:"d/m/Y H:i" }}</small>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Ajout du statut de paiement -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">Informations de paiement</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="payment-status {% if commande.statut == 'LIVREE' %}payment-complete{% else %}payment-pending{% endif %}">
+                    <h6>Statut du paiement</h6>
+                    <p class="mb-0">
+                        <i class="fas {% if commande.statut == 'LIVREE' %}fa-check-circle text-success{% else %}fa-clock text-warning{% endif %}"></i> {% if commande.statut == 'LIVREE' %}Payé{% else %}En attente de paiement{% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Mode de paiement :</th>
+                        <td>{{ commande.mode_paiement|default:"Non spécifié" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Conditions :</th>
+                        <td>{{ commande.conditions_paiement|default:"Non spécifiées" }}</td>
+                    </tr>
+                    {% if commande.remise > 0 %}
+                    <tr>
+                        <th>Remise appliquée :</th>
+                        <td>{{ commande.remise }}%</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ajout des documents liés -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">Documents</h5>
+    </div>
+    <div class="card-body">
+        <div class="list-group">
+            <a href="{% url 'Sama_Stock:generer_bon_commande' commande.id %}?type=original" class="list-group-item list-group-item-action" target="_blank">
+                <i class="fas fa-file-pdf text-danger"></i> Bon de commande (Original)
+            </a>
+            <a href="{% url 'Sama_Stock:generer_bon_commande' commande.id %}?type=copy" class="list-group-item list-group-item-action" target="_blank">
+                <i class="fas fa-copy text-secondary"></i> Bon de commande (Copie)
+            </a>
+            {% if commande.statut == 'LIVREE' %}
+            <a href="#" class="list-group-item list-group-item-action">
+                <i class="fas fa-truck text-success"></i> Bon de livraison
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

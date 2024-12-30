@@ -1,11 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import F, Sum, Count, Q, Avg, Case, When, DecimalField, IntegerField
+from django.db.models import F, Sum, Count, Q, Avg, Case, When, DecimalField, IntegerField, ProtectedError
 from django.db.models.functions import TruncMonth, Cast
 from django.utils import timezone
 from .models import Categorie, Produit, Mouvement, Commande, Fournisseur, LigneCommande, Inventaire, LigneInventaire
-from .forms import ProduitForm, MouvementForm, UserUpdateForm, ProfilUpdateForm
+from .forms import ProduitForm, MouvementForm, UserUpdateForm, ProfilUpdateForm, FournisseurForm, CategorieForm
 from django.db import models
 from datetime import timedelta
 from django.http import HttpResponse
@@ -21,6 +21,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from django.core.serializers.json import DjangoJSONEncoder
 import json
 from decimal import Decimal
+from django.core.paginator import Paginator
 try:
     import xlsxwriter
 except ImportError:
@@ -351,8 +352,16 @@ def export_statistiques(request):
 
 @login_required
 def gestion_commandes(request):
+    """Vue pour la gestion des commandes"""
     commandes = Commande.objects.all().order_by('-date_commande')
-    return render(request, 'Sama_Stock/commandes/liste.html', {'commandes': commandes})
+    
+    context = {
+        'commandes': commandes,
+        'commandes_en_attente': commandes.filter(statut='EN_ATTENTE').count(),
+        'commandes_validees': commandes.filter(statut='VALIDEE').count(),
+        'commandes_livrees': commandes.filter(statut='LIVREE').count(),
+    }
+    return render(request, 'Sama_Stock/commandes/gestion_commandes.html', context)
 
 @login_required
 def nouvelle_commande(request):
@@ -393,7 +402,7 @@ def nouvelle_commande(request):
                 return redirect('Sama_Stock:nouvelle_commande')
             
             messages.success(request, 'Commande créée avec succès!')
-            return redirect('Sama_Stock:gestion_commandes')
+            return redirect('Sama_Stock:liste_commandes')
             
         except Exception as e:
             messages.error(request, f'Erreur lors de la création de la commande: {str(e)}')
@@ -412,20 +421,32 @@ def nouvelle_commande(request):
 
 @login_required
 def nouvel_inventaire(request):
+    """Vue pour créer un nouvel inventaire"""
     if request.method == 'POST':
-        inventaire = Inventaire.objects.create(
-            date_debut=timezone.now(),
-            effectue_par=request.user
-        )
-        # Créer les lignes d'inventaire pour tous les produits
-        for produit in Produit.objects.all():
-            LigneInventaire.objects.create(
-                inventaire=inventaire,
-                produit=produit,
-                quantite_theorique=produit.quantite_stock,
-                quantite_reelle=0
-            )
-        return redirect('Sama_Stock:inventaire_en_cours', pk=inventaire.pk)
+        try:
+            with transaction.atomic():
+                inventaire = Inventaire.objects.create(
+                    date_debut=timezone.now(),
+                    effectue_par=request.user,
+                    statut='EN_COURS'
+                )
+                
+                # Création des lignes d'inventaire pour chaque produit
+                for produit in Produit.objects.all():
+                    LigneInventaire.objects.create(
+                        inventaire=inventaire,
+                        produit=produit,
+                        quantite_theorique=produit.quantite_stock,
+                        quantite_reelle=0
+                    )
+                
+                messages.success(request, 'Inventaire créé avec succès!')
+                return redirect('Sama_Stock:inventaire_en_cours', pk=inventaire.id)
+                
+        except Exception as e:
+            messages.error(request, f'Erreur: {str(e)}')
+            return redirect('Sama_Stock:dashboard')
+    
     return render(request, 'Sama_Stock/inventaire/nouveau.html')
 
 @login_required
@@ -570,14 +591,16 @@ def generer_bon_commande(request, pk):
     qr_data = f"""
     Commande N°: {commande.id}
     Date: {commande.date_commande.strftime('%d/%m/%Y')}
-    {'Client: ' + commande.client if hasattr(commande, 'client') else 'Fournisseur: ' + commande.fournisseur.nom}
+    {'Client: ' + commande.client if commande.type_commande == 'VENTE' else 'Fournisseur: ' + commande.fournisseur.nom}
     Total TTC: {commande.get_total_ttc()} FCFA
     """
     
     context = {
         'commande': commande,
         'lignes': commande.lignecommande_set.all(),
-        'total': commande.get_total(),
+        'total_ht': commande.get_total_ht(),
+        'total_tva': commande.get_total_tva(),
+        'total_ttc': commande.get_total_ttc(),
         'date': timezone.now(),
         'is_original': is_original,
         'qr_data': qr_data,
@@ -641,7 +664,7 @@ def nouvelle_commande_client(request):
                 return redirect('Sama_Stock:nouvelle_commande_client')
             
             messages.success(request, 'Commande client créée avec succès!')
-            return redirect('Sama_Stock:gestion_commandes')
+            return redirect('Sama_Stock:liste_commandes')
             
         except Exception as e:
             messages.error(request, f'Erreur: {str(e)}')
@@ -673,3 +696,357 @@ def profil(request):
         'p_form': p_form
     }
     return render(request, 'Sama_Stock/profil.html', context)
+
+@login_required
+def liste_commandes(request):
+    """Vue pour afficher la liste des commandes"""
+    commandes = Commande.objects.select_related('fournisseur', 'creee_par').all()
+    
+    # Liste des statuts pour le filtre
+    statuts = Commande.STATUT_CHOICES
+    
+    context = {
+        'commandes': commandes,
+        'statuts': statuts,
+    }
+    return render(request, 'Sama_Stock/commandes/liste_commandes.html', context)
+
+@login_required
+def nouvelle_commande_fournisseur(request):
+    """Vue pour créer une nouvelle commande fournisseur"""
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                commande = Commande.objects.create(
+                    type_commande='ACHAT',
+                    fournisseur_id=request.POST.get('fournisseur'),
+                    date_livraison_prevue=request.POST.get('date_livraison'),
+                    commentaire=request.POST.get('commentaire'),
+                    creee_par=request.user,
+                    statut='EN_ATTENTE'
+                )
+                
+                # Création des lignes de commande
+                produits = Produit.objects.all()
+                lignes_creees = False
+                
+                for produit in produits:
+                    quantite = request.POST.get(f'quantite_{produit.id}')
+                    if quantite and int(quantite) > 0:
+                        LigneCommande.objects.create(
+                            commande=commande,
+                            produit=produit,
+                            quantite=int(quantite),
+                            prix_unitaire=produit.prix_achat
+                        )
+                        lignes_creees = True
+                
+                if not lignes_creees:
+                    raise ValueError('Veuillez spécifier au moins une quantité.')
+                
+                messages.success(request, 'Commande fournisseur créée avec succès!')
+                return redirect('Sama_Stock:liste_commandes')
+                
+        except Exception as e:
+            messages.error(request, f'Erreur: {str(e)}')
+            return redirect('Sama_Stock:nouvelle_commande_fournisseur')
+    
+    context = {
+        'fournisseurs': Fournisseur.objects.all(),
+        'produits': Produit.objects.all()
+    }
+    return render(request, 'Sama_Stock/commandes/nouvelle_fournisseur.html', context)
+
+@login_required
+def detail_commande(request, pk):
+    """Vue pour afficher les détails d'une commande"""
+    commande = get_object_or_404(Commande.objects.select_related(
+        'fournisseur', 'creee_par', 'modifiee_par'
+    ), pk=pk)
+    
+    context = {
+        'commande': commande,
+        'lignes': commande.lignecommande_set.select_related('produit').all()
+    }
+    return render(request, 'Sama_Stock/commandes/detail_commande.html', context)
+
+@login_required
+def modifier_commande(request, pk):
+    """Vue pour modifier une commande"""
+    commande = get_object_or_404(Commande, pk=pk)
+    
+    if not commande.est_modifiable():
+        messages.error(request, "Cette commande ne peut plus être modifiée.")
+        return redirect('Sama_Stock:detail_commande', pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Mise à jour des informations de base
+                commande.commentaire = request.POST.get('commentaire')
+                commande.date_livraison_prevue = request.POST.get('date_livraison')
+                commande.modifiee_par = request.user
+                commande.save()
+                
+                # Mise à jour des lignes
+                commande.lignecommande_set.all().delete()
+                
+                produits = Produit.objects.all()
+                lignes_creees = False
+                
+                for produit in produits:
+                    quantite = request.POST.get(f'quantite_{produit.id}')
+                    if quantite and int(quantite) > 0:
+                        LigneCommande.objects.create(
+                            commande=commande,
+                            produit=produit,
+                            quantite=int(quantite),
+                            prix_unitaire=produit.prix_unitaire if commande.type_commande == 'VENTE' else produit.prix_achat
+                        )
+                        lignes_creees = True
+                
+                if not lignes_creees:
+                    raise ValueError('Veuillez spécifier au moins une quantité.')
+                
+                messages.success(request, 'Commande modifiée avec succès!')
+                return redirect('Sama_Stock:detail_commande', pk=pk)
+                
+        except Exception as e:
+            messages.error(request, f'Erreur: {str(e)}')
+    
+    context = {
+        'commande': commande,
+        'lignes': commande.lignecommande_set.select_related('produit').all(),
+        'produits': Produit.objects.all()
+    }
+    return render(request, 'Sama_Stock/commandes/modifier_commande.html', context)
+
+@login_required
+def export_commandes(request):
+    """Vue pour exporter les commandes en Excel"""
+    if xlsxwriter is None:
+        messages.error(request, "Le module xlsxwriter n'est pas installé.")
+        return redirect('Sama_Stock:liste_commandes')
+    
+    # Création du fichier Excel
+    output = BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    
+    try:
+        # Formats
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#4CAF50',
+            'font_color': 'white'
+        })
+        
+        # Feuille des commandes
+        ws = workbook.add_worksheet("Commandes")
+        
+        # En-têtes
+        headers = ['Référence', 'Type', 'Client/Fournisseur', 'Date', 'Statut', 'Total HT', 'Total TTC']
+        for col, header in enumerate(headers):
+            ws.write(0, col, header, header_format)
+        
+        # Données
+        commandes = Commande.objects.all()
+        for row, cmd in enumerate(commandes, start=1):
+            ws.write(row, 0, cmd.reference)
+            ws.write(row, 1, cmd.get_type_commande_display())
+            ws.write(row, 2, cmd.fournisseur.nom if cmd.type_commande == 'ACHAT' else cmd.client)
+            ws.write(row, 3, cmd.date_commande.strftime('%d/%m/%Y %H:%M'))
+            ws.write(row, 4, cmd.get_statut_display())
+            ws.write(row, 5, float(cmd.get_total_ht()))
+            ws.write(row, 6, float(cmd.get_total_ttc()))
+        
+        workbook.close()
+        output.seek(0)
+        
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=commandes.xlsx'
+        return response
+        
+    except Exception as e:
+        messages.error(request, f"Erreur lors de l'export : {str(e)}")
+        return redirect('Sama_Stock:liste_commandes')
+
+@login_required
+def liste_fournisseurs(request):
+    # Récupération des paramètres
+    search_query = request.GET.get('search', '')
+    sort_by = request.GET.get('sort', 'nom')
+    order = request.GET.get('order', 'asc')
+    
+    # Filtrage
+    fournisseurs = Fournisseur.objects.all()
+    if search_query:
+        fournisseurs = fournisseurs.filter(
+            Q(nom__icontains=search_query) |
+            Q(contact__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(adresse__icontains=search_query)
+        )
+    
+    # Tri
+    if order == 'desc':
+        sort_by = f'-{sort_by}'
+    fournisseurs = fournisseurs.order_by(sort_by)
+    
+    # Pagination
+    paginator = Paginator(fournisseurs, 10)  # 10 fournisseurs par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'sort_by': sort_by.replace('-', ''),
+        'order': order,
+        'total_fournisseurs': fournisseurs.count(),
+    }
+    return render(request, 'Sama_Stock/fournisseurs/liste_fournisseurs.html', context)
+
+@login_required
+def ajouter_fournisseur(request):
+    if request.method == 'POST':
+        form = FournisseurForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Fournisseur ajouté avec succès!')
+            return redirect('Sama_Stock:liste_fournisseurs')
+    else:
+        form = FournisseurForm()
+    
+    return render(request, 'Sama_Stock/fournisseurs/form_fournisseur.html', {
+        'form': form,
+        'titre': 'Ajouter un fournisseur'
+    })
+
+@login_required
+def modifier_fournisseur(request, pk):
+    fournisseur = get_object_or_404(Fournisseur, pk=pk)
+    if request.method == 'POST':
+        form = FournisseurForm(request.POST, instance=fournisseur)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Fournisseur modifié avec succès!')
+            return redirect('Sama_Stock:liste_fournisseurs')
+    else:
+        form = FournisseurForm(instance=fournisseur)
+    
+    return render(request, 'Sama_Stock/fournisseurs/form_fournisseur.html', {
+        'form': form,
+        'titre': 'Modifier le fournisseur',
+        'fournisseur': fournisseur
+    })
+
+@login_required
+def supprimer_fournisseur(request, pk):
+    fournisseur = get_object_or_404(Fournisseur, pk=pk)
+    
+    # Vérifier si le fournisseur est utilisé
+    produits_lies = fournisseur.produit_set.all()
+    commandes_liees = fournisseur.commande_set.all()
+    
+    if request.method == 'POST':
+        try:
+            fournisseur.delete()
+            messages.success(request, 'Fournisseur supprimé avec succès!')
+            return redirect('Sama_Stock:liste_fournisseurs')
+        except ProtectedError:
+            messages.error(request, 'Impossible de supprimer ce fournisseur car il est lié à des produits ou des commandes.')
+            return redirect('Sama_Stock:liste_fournisseurs')
+    
+    context = {
+        'fournisseur': fournisseur,
+        'produits_lies': produits_lies,
+        'commandes_liees': commandes_liees,
+        'peut_supprimer': not (produits_lies.exists() or commandes_liees.exists())
+    }
+    return render(request, 'Sama_Stock/fournisseurs/confirmer_suppression.html', context)
+
+@login_required
+def liste_categories(request):
+    # Récupération des paramètres
+    search_query = request.GET.get('search', '')
+    sort_by = request.GET.get('sort', 'nom')
+    order = request.GET.get('order', 'asc')
+    
+    # Filtrage
+    categories = Categorie.objects.all()
+    if search_query:
+        categories = categories.filter(
+            Q(nom__icontains=search_query) |
+            Q(description__icontains=search_query)
+        )
+    
+    # Tri
+    if order == 'desc':
+        sort_by = f'-{sort_by}'
+    categories = categories.order_by(sort_by)
+    
+    # Pagination
+    paginator = Paginator(categories, 10)  # 10 catégories par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'sort_by': sort_by.replace('-', ''),
+        'order': order,
+        'total_categories': categories.count(),
+    }
+    return render(request, 'Sama_Stock/categories/liste_categories.html', context)
+
+@login_required
+def ajouter_categorie(request):
+    if request.method == 'POST':
+        form = CategorieForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Catégorie ajoutée avec succès!')
+            return redirect('Sama_Stock:liste_categories')
+    else:
+        form = CategorieForm()
+    
+    return render(request, 'Sama_Stock/categories/form_categorie.html', {
+        'form': form,
+        'titre': 'Ajouter une catégorie'
+    })
+
+@login_required
+def modifier_categorie(request, pk):
+    categorie = get_object_or_404(Categorie, pk=pk)
+    if request.method == 'POST':
+        form = CategorieForm(request.POST, instance=categorie)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Catégorie modifiée avec succès!')
+            return redirect('Sama_Stock:liste_categories')
+    else:
+        form = CategorieForm(instance=categorie)
+    
+    return render(request, 'Sama_Stock/categories/form_categorie.html', {
+        'form': form,
+        'titre': 'Modifier la catégorie',
+        'categorie': categorie
+    })
+
+@login_required
+def supprimer_categorie(request, pk):
+    categorie = get_object_or_404(Categorie, pk=pk)
+    if request.method == 'POST':
+        try:
+            categorie.delete()
+            messages.success(request, 'Catégorie supprimée avec succès!')
+        except ProtectedError:
+            messages.error(request, 'Impossible de supprimer cette catégorie car elle contient des produits.')
+        return redirect('Sama_Stock:liste_categories')
+    
+    return render(request, 'Sama_Stock/categories/confirmer_suppression.html', {
+        'categorie': categorie
+    })

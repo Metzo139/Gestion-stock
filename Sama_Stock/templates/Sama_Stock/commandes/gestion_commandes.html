@@ -1,0 +1,103 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Gestion des Commandes{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h4 class="mb-0">Gestion des Commandes</h4>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="btn-group">
+                    <a href="{% url 'Sama_Stock:nouvelle_commande_client' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Nouvelle Commande Client
+                    </a>
+                    <a href="{% url 'Sama_Stock:nouvelle_commande_fournisseur' %}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Nouvelle Commande Fournisseur
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body">
+        <!-- Statistiques des commandes -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body">
+                        <h5 class="card-title">En attente</h5>
+                        <h2>{{ commandes_en_attente }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Validées</h5>
+                        <h2>{{ commandes_validees }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Livrées</h5>
+                        <h2>{{ commandes_livrees }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des commandes -->
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Référence</th>
+                        <th>Type</th>
+                        <th>Client/Fournisseur</th>
+                        <th>Date</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for commande in commandes %}
+                    <tr>
+                        <td>{{ commande.reference }}</td>
+                        <td>{{ commande.get_type_commande_display }}</td>
+                        <td>
+                            {% if commande.type_commande == 'ACHAT' %} {{ commande.fournisseur.nom }} {% else %} {{ commande.client }} {% endif %}
+                        </td>
+                        <td>{{ commande.date_commande|date:"d/m/Y" }}</td>
+                        <td>
+                            <span class="badge {% if commande.statut == 'EN_ATTENTE' %}bg-warning
+                                     {% elif commande.statut == 'VALIDEE' %}bg-success
+                                     {% elif commande.statut == 'ANNULEE' %}bg-danger
+                                     {% else %}bg-info{% endif %}">
+                                {{ commande.get_statut_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{% url 'Sama_Stock:detail_commande' commande.id %}" class="btn btn-sm btn-info" title="Détails">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if commande.est_modifiable %}
+                                <a href="{% url 'Sama_Stock:modifier_commande' commande.id %}" class="btn btn-sm btn-warning" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">Aucune commande trouvée</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

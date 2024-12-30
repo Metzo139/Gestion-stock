@@ -1,0 +1,170 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Gestion des Commandes{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">Gestion des Commandes</h4>
+        <div class="btn-group">
+            <a href="{% url 'Sama_Stock:nouvelle_commande_client' %}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Nouvelle commande client
+            </a>
+            <a href="{% url 'Sama_Stock:nouvelle_commande_fournisseur' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Nouvelle commande fournisseur
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Filtres -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <select class="form-select" id="filterType">
+                    <option value="">Tous les types</option>
+                    <option value="ACHAT">Commandes fournisseurs</option>
+                    <option value="VENTE">Commandes clients</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="filterStatut">
+                    <option value="">Tous les statuts</option>
+                    {% for statut, label in statuts %}
+                    <option value="{{ statut }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <input type="text" class="form-control" id="searchReference" placeholder="Rechercher une référence...">
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-outline-secondary" onclick="exportCommandes()">
+                    <i class="fas fa-file-export"></i> Exporter
+                </button>
+            </div>
+        </div>
+
+        <!-- Tableau des commandes -->
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Référence</th>
+                        <th>Type</th>
+                        <th>Client/Fournisseur</th>
+                        <th>Date</th>
+                        <th>Statut</th>
+                        <th>Total TTC</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for commande in commandes %}
+                    <tr class="commande-row" data-type="{{ commande.type_commande }}" data-statut="{{ commande.statut }}">
+                        <td>{{ commande.reference }}</td>
+                        <td>
+                            <span class="badge {% if commande.type_commande == 'ACHAT' %}bg-primary{% else %}bg-success{% endif %}">
+                                {{ commande.get_type_commande_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if commande.type_commande == 'ACHAT' %} {{ commande.fournisseur.nom }} {% else %} {{ commande.client }} {% endif %}
+                        </td>
+                        <td>{{ commande.date_commande|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if commande.statut == 'LIVREE' %}bg-success
+                                {% elif commande.statut == 'EN_ATTENTE' %}bg-warning
+                                {% elif commande.statut == 'ANNULEE' %}bg-danger
+                                {% else %}bg-info{% endif %}">
+                                {{ commande.get_statut_display }}
+                            </span>
+                        </td>
+                        <td>{{ commande.get_total_ttc|floatformat:0 }} FCFA</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{% url 'Sama_Stock:detail_commande' commande.id %}" class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if commande.est_modifiable %}
+                                <a href="{% url 'Sama_Stock:modifier_commande' commande.id %}" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'Sama_Stock:generer_bon_commande' commande.id %}" class="btn btn-sm btn-secondary">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                                {% if commande.est_annulable %}
+                                <button onclick="confirmerAnnulation('{{ commande.id }}')" class="btn btn-sm btn-danger">
+                                    <i class="fas fa-times"></i>
+                                </button> {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">Aucune commande trouvée</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation d'annulation -->
+<div class="modal fade" id="modalAnnulation" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmer l'annulation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Êtes-vous sûr de vouloir annuler cette commande ?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form id="formAnnulation" method="post" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Confirmer l'annulation</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %} {% block extra_js %}
+<script>
+    // Filtrage des commandes
+    function filterCommandes() {
+        const type = document.getElementById('filterType').value;
+        const statut = document.getElementById('filterStatut').value;
+        const search = document.getElementById('searchReference').value.toLowerCase();
+
+        document.querySelectorAll('.commande-row').forEach(row => {
+            const rowType = row.dataset.type;
+            const rowStatut = row.dataset.statut;
+            const reference = row.querySelector('td:first-child').textContent.toLowerCase();
+
+            const typeMatch = !type || rowType === type;
+            const statutMatch = !statut || rowStatut === statut;
+            const searchMatch = !search || reference.includes(search);
+
+            row.style.display = typeMatch && statutMatch && searchMatch ? '' : 'none';
+        });
+    }
+
+    // Écouteurs d'événements pour les filtres
+    document.getElementById('filterType').addEventListener('change', filterCommandes);
+    document.getElementById('filterStatut').addEventListener('change', filterCommandes);
+    document.getElementById('searchReference').addEventListener('input', filterCommandes);
+
+    // Confirmation d'annulation
+    function confirmerAnnulation(commandeId) {
+        const modal = new bootstrap.Modal(document.getElementById('modalAnnulation'));
+        document.getElementById('formAnnulation').action = `/commande/${commandeId}/annuler/`;
+        modal.show();
+    }
+
+    // Export des commandes
+    function exportCommandes() {
+        window.location.href = "{% url 'Sama_Stock:export_commandes' %}";
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}Supprimer le fournisseur{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4 class="mb-0">Confirmer la suppression</h4>
+    </div>
+    <div class="card-body">
+        <h5>Fournisseur : {{ fournisseur.nom }}</h5>
+
+        {% if not peut_supprimer %}
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Attention :</strong> Ce fournisseur ne peut pas être supprimé car il est lié à : {% if produits_lies %}
+            <h6 class="mt-3">Produits liés :</h6>
+            <ul>
+                {% for produit in produits_lies %}
+                <li>{{ produit.nom }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %} {% if commandes_liees %}
+            <h6 class="mt-3">Commandes liées :</h6>
+            <ul>
+                {% for commande in commandes_liees %}
+                <li>{{ commande.reference }} ({{ commande.get_statut_display }})</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            <p class="mt-3 mb-0">
+                Vous devez d'abord supprimer ces liens avant de pouvoir supprimer le fournisseur.
+            </p>
+        </div>
+
+        <a href="{% url 'Sama_Stock:liste_fournisseurs' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Retour à la liste
+        </a>
+        {% else %}
+        <p>Êtes-vous sûr de vouloir supprimer le fournisseur "{{ fournisseur.nom }}" ?</p>
+        <p class="text-danger">
+            <i class="fas fa-exclamation-triangle"></i> Cette action est irréversible.
+        </p>
+
+        <form method="post" class="mt-4">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Confirmer la suppression
+                </button>
+            <a href="{% url 'Sama_Stock:liste_fournisseurs' %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Annuler
+            </a>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

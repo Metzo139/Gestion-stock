@@ -1,0 +1,1 @@
+web: gunicorn GestionStock.wsgi:application --log-file -

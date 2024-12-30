@@ -1,0 +1,91 @@
+{% extends 'Sama_Stock/base.html' %} {% block title %}{{ titre }}{% endblock %} {% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4 class="mb-0">{{ titre }}</h4>
+    </div>
+    <div class="card-body">
+        {% if messages %} {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %} {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label for="{{ form.nom.id_for_label }}" class="form-label">Nom de la catégorie</label> {{ form.nom }} {% if form.nom.errors %}
+                <div class="invalid-feedback d-block">
+                    {{ form.nom.errors|join:", " }}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                <label for="{{ form.description.id_for_label }}" class="form-label">Description</label> {{ form.description }} {% if form.description.errors %}
+                <div class="invalid-feedback d-block">
+                    {{ form.description.errors|join:", " }}
+                </div>
+                {% endif %}
+                <div class="form-text">
+                    Une brève description de la catégorie (optionnelle)
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Enregistrer
+                </button>
+                <a href="{% url 'Sama_Stock:liste_categories' %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Annuler
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if categorie %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">Produits dans cette catégorie</h5>
+    </div>
+    <div class="card-body">
+        {% with produits=categorie.produit_set.all %} {% if produits %}
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Nom</th>
+                        <th>Stock</th>
+                        <th>Prix</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for produit in produits %}
+                    <tr>
+                        <td>{{ produit.nom }}</td>
+                        <td>{{ produit.quantite_stock }}</td>
+                        <td>{{ produit.prix_unitaire }} FCFA</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Aucun produit dans cette catégorie</p>
+        {% endif %} {% endwith %}
+    </div>
+</div>
+{% endif %} {% endblock %} {% block extra_css %}
+<style>
+    .invalid-feedback {
+        display: block;
+    }
+    
+    .form-control:focus {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, .25);
+    }
+</style>
+{% endblock %}

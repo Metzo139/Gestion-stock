@@ -9,6 +9,7 @@ from django.core.files import File
 from PIL import Image
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from decimal import Decimal
 
 class Categorie(models.Model):
     nom = models.CharField(max_length=100)
@@ -109,37 +110,105 @@ class Produit(models.Model):
         ordering = ['categorie', 'nom']
 
 class Commande(models.Model):
+    TYPE_COMMANDE = [
+        ('ACHAT', 'Commande fournisseur'),
+        ('VENTE', 'Commande client'),
+    ]
+    
     STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
         ('EN_ATTENTE', 'En attente'),
         ('VALIDEE', 'Validée'),
+        ('EN_COURS_LIVRAISON', 'En cours de livraison'),
         ('LIVREE', 'Livrée'),
         ('ANNULEE', 'Annulée'),
     ]
     
-    fournisseur = models.ForeignKey(Fournisseur, on_delete=models.PROTECT)
-    date_commande = models.DateTimeField(auto_now_add=True)
-    date_livraison_prevue = models.DateField()
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='EN_ATTENTE')
-    commentaire = models.TextField(blank=True)
-    creee_par = models.ForeignKey(User, on_delete=models.PROTECT)
-    
-    def __str__(self):
-        return f"Commande #{self.id} - {self.fournisseur.nom}"
+    PRIORITE_CHOICES = [
+        ('BASSE', 'Basse'),
+        ('NORMALE', 'Normale'),
+        ('HAUTE', 'Haute'),
+        ('URGENTE', 'Urgente'),
+    ]
 
-    def get_total(self):
-        return sum(ligne.total() for ligne in self.lignecommande_set.all())
+    reference = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    type_commande = models.CharField(max_length=10, choices=TYPE_COMMANDE, default='VENTE')
+    fournisseur = models.ForeignKey(Fournisseur, on_delete=models.PROTECT, null=True, blank=True)
+    client = models.CharField(max_length=200, blank=True)
+    telephone_client = models.CharField(max_length=20, blank=True)
+    email_client = models.EmailField(blank=True)
+    adresse_livraison = models.TextField(blank=True)
+    date_commande = models.DateTimeField(auto_now_add=True)
+    date_livraison_prevue = models.DateField(null=True, blank=True)
+    date_livraison_reelle = models.DateTimeField(null=True, blank=True)
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    priorite = models.CharField(max_length=10, choices=PRIORITE_CHOICES, default='NORMALE')
+    commentaire = models.TextField(blank=True)
+    creee_par = models.ForeignKey(User, on_delete=models.PROTECT, related_name='commandes_creees')
+    modifiee_par = models.ForeignKey(User, on_delete=models.PROTECT, related_name='commandes_modifiees', null=True, blank=True)
+    conditions_paiement = models.TextField(blank=True)
+    mode_paiement = models.CharField(max_length=50, blank=True)
+    remise = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     
-    def get_nombre_articles(self):
-        return sum(ligne.quantite for ligne in self.lignecommande_set.all())
+    def save(self, *args, **kwargs):
+        if not self.reference:
+            prefix = 'CMD-F' if self.type_commande == 'ACHAT' else 'CMD-C'
+            derniere_commande = Commande.objects.filter(
+                reference__startswith=prefix
+            ).order_by('-reference').first()
+            
+            if derniere_commande and derniere_commande.reference:
+                try:
+                    num = int(derniere_commande.reference.split('-')[-1]) + 1
+                except (ValueError, IndexError):
+                    num = 1
+            else:
+                num = 1
+            
+            self.reference = f"{prefix}-{num:04d}"
+            
+            # Vérifier l'unicité
+            while Commande.objects.filter(reference=self.reference).exists():
+                num += 1
+                self.reference = f"{prefix}-{num:04d}"
+                
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        if self.type_commande == 'ACHAT':
+            return f"{self.reference} - {self.fournisseur.nom}"
+        return f"{self.reference} - {self.client}"
 
     def get_total_ht(self):
         return sum(ligne.total() for ligne in self.lignecommande_set.all())
     
+    def get_montant_remise(self):
+        return self.get_total_ht() * (self.remise / Decimal('100'))
+    
+    def get_total_apres_remise(self):
+        return self.get_total_ht() - self.get_montant_remise()
+    
     def get_total_tva(self):
-        return self.get_total_ht() * 0.18  # TVA 18%
+        return self.get_total_apres_remise() * Decimal('0.18')  # TVA 18%
     
     def get_total_ttc(self):
-        return self.get_total_ht() + self.get_total_tva()
+        return self.get_total_apres_remise() + self.get_total_tva()
+    
+    def get_statut_livraison(self):
+        if self.statut == 'LIVREE':
+            return 'Livrée le ' + self.date_livraison_reelle.strftime('%d/%m/%Y')
+        return self.get_statut_display()
+
+    def est_modifiable(self):
+        return self.statut in ['BROUILLON', 'EN_ATTENTE']
+
+    def est_annulable(self):
+        return self.statut not in ['LIVREE', 'ANNULEE']
+
+    class Meta:
+        ordering = ['-date_commande']
+        verbose_name = "Commande"
+        verbose_name_plural = "Commandes"
 
 class LigneCommande(models.Model):
     commande = models.ForeignKey(Commande, on_delete=models.CASCADE)
